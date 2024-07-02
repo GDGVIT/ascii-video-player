@@ -1,5 +1,5 @@
 use opencv::prelude::*;
-use opencv::{highgui, imgproc, videoio, Result};
+use opencv::{highgui, imgproc, videoio, core, Result};
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
@@ -30,6 +30,8 @@ fn main() -> Result<()> {
         "     .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     let ascii_table_len = ascii_table.len();
 
+    let term_size = termion::terminal_size().unwrap();
+
     let window = "Video";
     highgui::named_window(window, 1)?;
 
@@ -46,9 +48,12 @@ fn main() -> Result<()> {
         if frame.size()?.width > 0 {
             let mut gray = Mat::default();
             imgproc::cvt_color_def(&frame, &mut gray, imgproc::COLOR_BGR2GRAY)?;
-            highgui::imshow(window, &gray)?;
 
-            println!("{}", encode_frame(gray, ascii_table, ascii_table_len)?);
+            let mut smaller = Mat::default();
+            imgproc::resize(&gray, &mut smaller, core::Size::new(term_size.0.into(), term_size.1.into()), 0.0, 0.0, imgproc::INTER_AREA)?;
+            highgui::imshow(window, &smaller)?;
+
+            println!("{}", encode_frame(smaller, ascii_table, ascii_table_len)?);
         }
 
         if highgui::wait_key(10)? > 0 {
