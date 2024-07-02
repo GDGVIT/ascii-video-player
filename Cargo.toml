@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 opencv = "0.92.0"
+termion = "4.0.2"
