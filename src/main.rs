@@ -1,28 +1,31 @@
 use opencv::prelude::*;
 use opencv::{highgui, imgproc, videoio, core, Result};
+use opencv::core::VecN;
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
 }
 
-fn encode_frame(frame: Mat, table: &str, table_len: usize) -> Result<String> {
-    let mut out_frame = String::new();
+fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result<String> {
+    let mut out_colors = String::new();
 
     let rows = frame.rows();
     let cols = frame.cols();
 
     for row in 0..rows {
         for col in 0..cols {
-            let pixel = frame.at_2d::<u8>(row, col)?;
+            let pixel = frame.at_2d::<VecN<u8, 3>>(row, col)?;
 
-            let new_pixel = map_range((0, 255), (0, (table_len - 1) as i32), *pixel as i32);
-            out_frame.push(table.as_bytes()[new_pixel as usize] as char);
+            let gray_pixel = gray.at_2d::<u8>(row, col)?;
+            let new_pixel = map_range((0, 255), (0, (table_len - 1) as i32), *gray_pixel as i32);
+            out_colors.push_str(&*format!("\x1b[38;2;{};{};{}m{}", pixel[2], pixel[1], pixel[0], table.as_bytes()[new_pixel as usize] as char))
         }
 
-        out_frame.push_str("\n");
+        out_colors.push_str("\n");
     }
 
-    Ok(out_frame)
+    Ok(out_colors)
+
 }
 
 fn main() -> Result<()> {
@@ -35,7 +38,7 @@ fn main() -> Result<()> {
     let window = "Video";
     highgui::named_window(window, 1)?;
 
-    let mut cam = videoio::VideoCapture::from_file("bad-apple.webm", videoio::CAP_ANY)?;
+    let mut cam = videoio::VideoCapture::from_file("baby-shark.webm", videoio::CAP_ANY)?;
 
     if !cam.is_opened()? {
         panic!("Unable to open video file");
@@ -49,12 +52,15 @@ fn main() -> Result<()> {
             let mut smaller = Mat::default();
             imgproc::resize(&frame, &mut smaller, core::Size::new(term_size.0.into(), term_size.1.into()), 0.0, 0.0, imgproc::INTER_AREA)?;
 
+            //let _ = find_colors(&smaller)?;
+            //println!("{}", find_colors(&smaller)?);
+
             let mut gray = Mat::default();
             imgproc::cvt_color_def(&smaller, &mut gray, imgproc::COLOR_BGR2GRAY)?;
 
-            highgui::imshow(window, &gray)?;
+            highgui::imshow(window, &smaller)?;
 
-            println!("{}", encode_frame(gray, ascii_table, ascii_table_len)?);
+            println!("{}", find_colors(&smaller, &gray, ascii_table, ascii_table_len)?);
         }
 
         if highgui::wait_key(10)? > 0 {
