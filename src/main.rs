@@ -46,14 +46,15 @@ fn main() -> Result<()> {
         cam.read(&mut frame)?;
 
         if frame.size()?.width > 0 {
-            let mut gray = Mat::default();
-            imgproc::cvt_color_def(&frame, &mut gray, imgproc::COLOR_BGR2GRAY)?;
-
             let mut smaller = Mat::default();
-            imgproc::resize(&gray, &mut smaller, core::Size::new(term_size.0.into(), term_size.1.into()), 0.0, 0.0, imgproc::INTER_AREA)?;
-            highgui::imshow(window, &smaller)?;
+            imgproc::resize(&frame, &mut smaller, core::Size::new(term_size.0.into(), term_size.1.into()), 0.0, 0.0, imgproc::INTER_AREA)?;
 
-            println!("{}", encode_frame(smaller, ascii_table, ascii_table_len)?);
+            let mut gray = Mat::default();
+            imgproc::cvt_color_def(&smaller, &mut gray, imgproc::COLOR_BGR2GRAY)?;
+
+            highgui::imshow(window, &gray)?;
+
+            println!("{}", encode_frame(gray, ascii_table, ascii_table_len)?);
         }
 
         if highgui::wait_key(10)? > 0 {
