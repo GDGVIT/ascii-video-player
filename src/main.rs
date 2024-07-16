@@ -1,6 +1,6 @@
 use opencv::core::VecN;
 use opencv::prelude::*;
-use opencv::{core, highgui, imgproc, videoio, Result};
+use opencv::{core, imgproc, videoio, Result};
 use std::io::{self, Write};
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
@@ -41,9 +41,6 @@ fn main() -> Result<()> {
 
     let term_size = termion::terminal_size().unwrap();
 
-    let window = "Video";
-    highgui::named_window(window, 1)?;
-
     let mut cam = videoio::VideoCapture::from_file("baby-shark.webm", videoio::CAP_ANY)?;
 
     if !cam.is_opened()? {
@@ -65,13 +62,8 @@ fn main() -> Result<()> {
                 imgproc::INTER_AREA,
             )?;
 
-            //let _ = find_colors(&smaller)?;
-            //println!("{}", find_colors(&smaller)?);
-
             let mut gray = Mat::default();
             imgproc::cvt_color_def(&smaller, &mut gray, imgproc::COLOR_BGR2GRAY)?;
-
-            highgui::imshow(window, &smaller)?;
 
             println!(
                 "{}",
@@ -82,9 +74,5 @@ fn main() -> Result<()> {
 
         }
 
-        if highgui::wait_key(10)? > 0 {
-            break;
-        }
     }
-    Ok(())
 }
