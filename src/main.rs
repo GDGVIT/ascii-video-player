@@ -1,6 +1,7 @@
 use opencv::core::VecN;
 use opencv::prelude::*;
 use opencv::{core, highgui, imgproc, videoio, Result};
+use std::io::{self, Write};
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
@@ -76,6 +77,9 @@ fn main() -> Result<()> {
                 "{}",
                 find_colors(&smaller, &gray, ascii_table, ascii_table_len)?
             );
+
+            io::stdout().flush().unwrap();
+
         }
 
         if highgui::wait_key(10)? > 0 {
