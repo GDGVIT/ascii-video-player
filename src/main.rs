@@ -1,9 +1,11 @@
 use opencv::core::VecN;
 use opencv::prelude::*;
 use opencv::{core, imgproc, videoio, Result};
-use std::io::{self, Write};
 use std::sync::mpsc;
 use std::{thread, time};
+
+use crossterm::{execute, cursor::{MoveTo, Hide}, terminal::{Clear, ClearType}};
+use std::io::{stdout, Write};
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
@@ -41,7 +43,7 @@ fn main() -> Result<()> {
         "     .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     let ascii_table_len = ascii_table.len();
 
-    let term_size = termion::terminal_size().unwrap();
+    let term_size = crossterm::terminal::size().unwrap();
 
     let mut cam = videoio::VideoCapture::from_file("baby-shark.webm", videoio::CAP_ANY)?;
 
@@ -54,6 +56,7 @@ fn main() -> Result<()> {
     let frame_delay = time::Duration::from_millis((1000.0 / fps) as u64);
 
     let (tx, rx) = mpsc::channel();
+    execute!(stdout(), Hide).unwrap();
 
     thread::spawn(move || loop {
         let mut frame = Mat::default();
@@ -64,7 +67,7 @@ fn main() -> Result<()> {
             imgproc::resize(
                 &frame,
                 &mut smaller,
-                core::Size::new(term_size.0.into(), term_size.1.into()),
+                core::Size::new(term_size.0.into(), (term_size.1 - 2).into()),
                 0.0,
                 0.0,
                 imgproc::INTER_AREA,
@@ -80,9 +83,10 @@ fn main() -> Result<()> {
     });
 
     for received in rx {
+        execute!(stdout(), MoveTo(0, 0)).unwrap();
+        execute!(stdout(), Clear(ClearType::Purge)).unwrap();
         print!("{}", received);
         thread::sleep(frame_delay);
-        print!("{}", termion::clear::All);
     }
 
     Ok(())
