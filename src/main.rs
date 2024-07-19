@@ -2,13 +2,15 @@ use opencv::core::VecN;
 use opencv::prelude::*;
 use opencv::{core, imgproc, videoio, Result};
 use std::io::{self, Write};
+use std::sync::mpsc;
+use std::{thread, time};
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
 }
 
 fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result<String> {
-    let mut out_colors = String::new();
+    let mut out_colors = String::with_capacity((frame.rows() * frame.cols()) as usize * 4);
 
     let rows = frame.rows();
     let cols = frame.cols();
@@ -28,7 +30,7 @@ fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result
             ))
         }
 
-        out_colors.push_str("\n");
+        out_colors.push_str("\r\n");
     }
 
     Ok(out_colors)
@@ -47,11 +49,17 @@ fn main() -> Result<()> {
         panic!("Unable to open video file");
     }
 
-    loop {
-        let mut frame = Mat::default();
-        cam.read(&mut frame)?;
+    let fps = cam.get(videoio::CAP_PROP_FPS)?;
+    // time b/w each frame
+    let frame_delay = time::Duration::from_millis((1000.0 / fps) as u64);
 
-        if frame.size()?.width > 0 {
+    let (tx, rx) = mpsc::channel();
+
+    thread::spawn(move || loop {
+        let mut frame = Mat::default();
+        cam.read(&mut frame).unwrap();
+
+        if frame.size().unwrap().width > 0 {
             let mut smaller = Mat::default();
             imgproc::resize(
                 &frame,
@@ -60,19 +68,22 @@ fn main() -> Result<()> {
                 0.0,
                 0.0,
                 imgproc::INTER_AREA,
-            )?;
+            )
+            .unwrap();
 
             let mut gray = Mat::default();
-            imgproc::cvt_color_def(&smaller, &mut gray, imgproc::COLOR_BGR2GRAY)?;
+            imgproc::cvt_color_def(&smaller, &mut gray, imgproc::COLOR_BGR2GRAY).unwrap();
 
-            println!(
-                "{}",
-                find_colors(&smaller, &gray, ascii_table, ascii_table_len)?
-            );
-
-            io::stdout().flush().unwrap();
-
+            tx.send(find_colors(&smaller, &gray, ascii_table, ascii_table_len).unwrap())
+                .unwrap();
         }
+    });
 
+    for received in rx {
+        print!("{}", received);
+        thread::sleep(frame_delay);
+        print!("{}", termion::clear::All);
     }
+
+    Ok(())
 }
