@@ -1,18 +1,19 @@
 use opencv::core::VecN;
 use opencv::prelude::*;
 use opencv::{core, imgproc, videoio, Result};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use std::{thread, time};
 
+
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
-use crossterm::terminal;
 use crossterm::{
-    cursor::{Hide, MoveTo},
+    cursor::{Hide, Show, MoveTo},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
+use crossterm::terminal;
 use std::io;
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
@@ -53,9 +54,6 @@ fn main() -> Result<()> {
 
     execute!(stdout, terminal::EnterAlternateScreen).unwrap();
 
-    let is_running = Arc::new(AtomicBool::new(true));
-    let is_running_clone = is_running.clone();
-
     let mut is_paused = false;
 
     let ascii_table =
@@ -91,28 +89,23 @@ fn main() -> Result<()> {
                 0.0,
                 imgproc::INTER_AREA,
             )
-            .unwrap();
+                .unwrap();
 
             let mut gray = Mat::default();
             imgproc::cvt_color_def(&smaller, &mut gray, imgproc::COLOR_BGR2GRAY).unwrap();
 
-            tx.send(find_colors(&smaller, &gray, ascii_table, ascii_table_len).unwrap())
-                .unwrap();
+            let Ok(_) = tx.send(find_colors(&smaller, &gray, ascii_table, ascii_table_len).unwrap()) else {
+                break;
+            };
         }
 
-        if !is_running_clone.load(Ordering::Relaxed) {
-            break;
-        }
     });
 
-    for received in &rx {
-        if !is_running.load(Ordering::Relaxed) {
-            handle.join().unwrap();
-            drop(rx);
-            break;
-        }
+    loop {
 
         if !is_paused {
+            let received = rx.recv().unwrap();
+
             execute!(stdout, MoveTo(0, 0)).unwrap();
             execute!(stdout, Clear(ClearType::Purge)).unwrap();
             print!("{}", received);
@@ -126,7 +119,9 @@ fn main() -> Result<()> {
                     code: KeyCode::Char('q'),
                     ..
                 }) => {
-                    is_running.store(false, Ordering::Relaxed);
+                    // breaking here drops rx, preventing tx from sending which then breaks the other
+                    // thread
+                    break;
                 }
                 Event::Key(KeyEvent {
                     code: KeyCode::Char(' '),
@@ -140,6 +135,7 @@ fn main() -> Result<()> {
     }
 
     execute!(stdout, terminal::LeaveAlternateScreen).unwrap();
+    execute!(stdout, Show).unwrap();
     disable_raw_mode().unwrap();
     Ok(())
 }
