@@ -2,10 +2,17 @@ use opencv::core::VecN;
 use opencv::prelude::*;
 use opencv::{core, imgproc, videoio, Result};
 use std::sync::mpsc;
+use std::time::Duration;
 use std::{thread, time};
 
-use crossterm::{execute, cursor::{MoveTo, Hide}, terminal::{Clear, ClearType}};
-use std::io::{stdout, Write};
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::terminal;
+use crossterm::{
+    cursor::{Hide, MoveTo, Show},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
+};
+use std::io;
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
@@ -39,6 +46,15 @@ fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result
 }
 
 fn main() -> Result<()> {
+    enable_raw_mode().unwrap();
+
+    let mut stdout = io::stdout();
+
+    execute!(stdout, terminal::EnterAlternateScreen).unwrap();
+
+    let mut is_paused = false;
+    let mut time_multiplier = 1.0;
+
     let ascii_table =
         "     .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     let ascii_table_len = ascii_table.len();
@@ -55,8 +71,8 @@ fn main() -> Result<()> {
     // time b/w each frame
     let frame_delay = time::Duration::from_millis((1000.0 / fps) as u64);
 
-    let (tx, rx) = mpsc::channel();
-    execute!(stdout(), Hide).unwrap();
+    let (tx, rx) = mpsc::sync_channel(50);
+    execute!(stdout, Hide).unwrap();
 
     thread::spawn(move || loop {
         let mut frame = Mat::default();
@@ -77,17 +93,60 @@ fn main() -> Result<()> {
             let mut gray = Mat::default();
             imgproc::cvt_color_def(&smaller, &mut gray, imgproc::COLOR_BGR2GRAY).unwrap();
 
-            tx.send(find_colors(&smaller, &gray, ascii_table, ascii_table_len).unwrap())
-                .unwrap();
+            let Ok(_) =
+                tx.send(find_colors(&smaller, &gray, ascii_table, ascii_table_len).unwrap())
+            else {
+                break;
+            };
         }
     });
 
-    for received in rx {
-        execute!(stdout(), MoveTo(0, 0)).unwrap();
-        execute!(stdout(), Clear(ClearType::Purge)).unwrap();
-        print!("{}", received);
-        thread::sleep(frame_delay);
+    loop {
+        if !is_paused {
+            let received = rx.recv().unwrap();
+
+            execute!(stdout, MoveTo(0, 0)).unwrap();
+            execute!(stdout, Clear(ClearType::Purge)).unwrap();
+            print!("{}", received);
+
+            thread::sleep(frame_delay.mul_f32(time_multiplier));
+        }
+
+        if event::poll(Duration::from_millis(0)).unwrap() {
+            match event::read().unwrap() {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('q'),
+                    ..
+                }) => {
+                    // breaking here drops rx, preventing tx from sending which then breaks the other
+                    // thread
+                    break;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char(' '),
+                    ..
+                }) => {
+                    is_paused = !is_paused;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('l'),
+                    ..
+                }) => {
+                    time_multiplier = time_multiplier * 2.0;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('j'),
+                    ..
+                }) => {
+                    time_multiplier = time_multiplier / 2.0;
+                }
+                _ => {}
+            }
+        }
     }
 
+    execute!(stdout, terminal::LeaveAlternateScreen).unwrap();
+    execute!(stdout, Show).unwrap();
+    disable_raw_mode().unwrap();
     Ok(())
 }
