@@ -1,11 +1,19 @@
 use opencv::core::VecN;
 use opencv::prelude::*;
 use opencv::{core, imgproc, videoio, Result};
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
+use std::time::Duration;
 use std::{thread, time};
 
-use crossterm::{execute, cursor::{MoveTo, Hide}, terminal::{Clear, ClearType}};
-use std::io::{stdout, Write};
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::terminal;
+use crossterm::{
+    cursor::{Hide, MoveTo},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
+};
+use std::io;
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
@@ -39,6 +47,17 @@ fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result
 }
 
 fn main() -> Result<()> {
+    enable_raw_mode().unwrap();
+
+    let mut stdout = io::stdout();
+
+    execute!(stdout, terminal::EnterAlternateScreen).unwrap();
+
+    let is_running = Arc::new(AtomicBool::new(true));
+    let is_running_clone = is_running.clone();
+
+    let mut is_paused = false;
+
     let ascii_table =
         "     .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     let ascii_table_len = ascii_table.len();
@@ -55,10 +74,10 @@ fn main() -> Result<()> {
     // time b/w each frame
     let frame_delay = time::Duration::from_millis((1000.0 / fps) as u64);
 
-    let (tx, rx) = mpsc::channel();
-    execute!(stdout(), Hide).unwrap();
+    let (tx, rx) = mpsc::sync_channel(50);
+    execute!(stdout, Hide).unwrap();
 
-    thread::spawn(move || loop {
+    let handle = thread::spawn(move || loop {
         let mut frame = Mat::default();
         cam.read(&mut frame).unwrap();
 
@@ -80,14 +99,47 @@ fn main() -> Result<()> {
             tx.send(find_colors(&smaller, &gray, ascii_table, ascii_table_len).unwrap())
                 .unwrap();
         }
+
+        if !is_running_clone.load(Ordering::Relaxed) {
+            break;
+        }
     });
 
-    for received in rx {
-        execute!(stdout(), MoveTo(0, 0)).unwrap();
-        execute!(stdout(), Clear(ClearType::Purge)).unwrap();
-        print!("{}", received);
-        thread::sleep(frame_delay);
+    for received in &rx {
+        if !is_running.load(Ordering::Relaxed) {
+            handle.join().unwrap();
+            drop(rx);
+            break;
+        }
+
+        if !is_paused {
+            execute!(stdout, MoveTo(0, 0)).unwrap();
+            execute!(stdout, Clear(ClearType::Purge)).unwrap();
+            print!("{}", received);
+
+            thread::sleep(frame_delay);
+        }
+
+        if event::poll(Duration::from_millis(0)).unwrap() {
+            match event::read().unwrap() {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('q'),
+                    ..
+                }) => {
+                    is_running.store(false, Ordering::Relaxed);
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char(' '),
+                    ..
+                }) => {
+                    is_paused = !is_paused;
+                }
+                _ => {}
+            }
+        }
     }
 
+    execute!(stdout, terminal::LeaveAlternateScreen).unwrap();
+    disable_raw_mode().unwrap();
     Ok(())
 }
