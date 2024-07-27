@@ -55,6 +55,7 @@ fn main() -> Result<()> {
     execute!(stdout, terminal::EnterAlternateScreen).unwrap();
 
     let mut is_paused = false;
+    let mut time_multiplier = 1.0;
 
     let ascii_table =
         "     .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
@@ -110,7 +111,7 @@ fn main() -> Result<()> {
             execute!(stdout, Clear(ClearType::Purge)).unwrap();
             print!("{}", received);
 
-            thread::sleep(frame_delay);
+            thread::sleep(frame_delay.mul_f32(time_multiplier));
         }
 
         if event::poll(Duration::from_millis(0)).unwrap() {
@@ -128,6 +129,18 @@ fn main() -> Result<()> {
                     ..
                 }) => {
                     is_paused = !is_paused;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('l'),
+                    ..
+                }) => {
+                    time_multiplier = time_multiplier * 2.0;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('j'),
+                    ..
+                }) => {
+                    time_multiplier = time_multiplier / 2.0;
                 }
                 _ => {}
             }
