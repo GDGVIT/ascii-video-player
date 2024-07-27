@@ -1,19 +1,17 @@
 use opencv::core::VecN;
 use opencv::prelude::*;
 use opencv::{core, imgproc, videoio, Result};
-use std::sync::{mpsc, Arc};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::time::Duration;
 use std::{thread, time};
 
-
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::terminal;
 use crossterm::{
-    cursor::{Hide, Show, MoveTo},
+    cursor::{Hide, MoveTo, Show},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
-use crossterm::terminal;
 use std::io;
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
@@ -76,7 +74,7 @@ fn main() -> Result<()> {
     let (tx, rx) = mpsc::sync_channel(50);
     execute!(stdout, Hide).unwrap();
 
-    let handle = thread::spawn(move || loop {
+    thread::spawn(move || loop {
         let mut frame = Mat::default();
         cam.read(&mut frame).unwrap();
 
@@ -90,20 +88,20 @@ fn main() -> Result<()> {
                 0.0,
                 imgproc::INTER_AREA,
             )
-                .unwrap();
+            .unwrap();
 
             let mut gray = Mat::default();
             imgproc::cvt_color_def(&smaller, &mut gray, imgproc::COLOR_BGR2GRAY).unwrap();
 
-            let Ok(_) = tx.send(find_colors(&smaller, &gray, ascii_table, ascii_table_len).unwrap()) else {
+            let Ok(_) =
+                tx.send(find_colors(&smaller, &gray, ascii_table, ascii_table_len).unwrap())
+            else {
                 break;
             };
         }
-
     });
 
     loop {
-
         if !is_paused {
             let received = rx.recv().unwrap();
 
