@@ -12,6 +12,8 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
+
+use std::env;
 use std::io;
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
@@ -46,11 +48,6 @@ fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result
 }
 
 fn main() -> Result<()> {
-    enable_raw_mode().unwrap();
-
-    let mut stdout = io::stdout();
-
-    execute!(stdout, terminal::EnterAlternateScreen).unwrap();
 
     let mut is_paused = false;
     let mut time_multiplier = 1.0;
@@ -61,15 +58,29 @@ fn main() -> Result<()> {
 
     let term_size = crossterm::terminal::size().unwrap();
 
-    let mut cam = videoio::VideoCapture::from_file("baby-shark.webm", videoio::CAP_ANY)?;
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        println!("Usage: {} <video file>", args[0]);
+        return Ok(());
+    }
+
+    let video_file = &args[1];
+
+    let mut cam = videoio::VideoCapture::from_file(video_file, videoio::CAP_ANY)?;
 
     if !cam.is_opened()? {
-        panic!("Unable to open video file");
+        println!("Unable to open video file: {}", video_file);
+        return Ok(());
     }
 
     let fps = cam.get(videoio::CAP_PROP_FPS)?;
     // time b/w each frame
     let frame_delay = time::Duration::from_millis((1000.0 / fps) as u64);
+
+    enable_raw_mode().unwrap();
+    let mut stdout = io::stdout();
+    execute!(stdout, terminal::EnterAlternateScreen).unwrap();
 
     let (tx, rx) = mpsc::sync_channel(50);
     execute!(stdout, Hide).unwrap();
