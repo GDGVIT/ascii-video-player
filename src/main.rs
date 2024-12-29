@@ -94,7 +94,7 @@ fn main() -> Result<()> {
             imgproc::resize(
                 &frame,
                 &mut smaller,
-                core::Size::new(term_size.0.into(), (term_size.1 - 2).into()),
+                core::Size::new(term_size.0.into(), (term_size.1 - 1).into()),
                 0.0,
                 0.0,
                 imgproc::INTER_AREA,
