@@ -34,13 +34,14 @@ cargo run <video file>
 ```
 
 ## Controls
-q - quit
 
-space - pause
+| Key       | Action                   |
+|-----------|--------------------------|
+| `Q`       | Quit                     |
+| `L`       | Slow down by 2x          |
+| `J`       | Speed up by 2x           |
+| `Space`   | Pause                    |
 
-l - slow down by 2x
-
-j - speed up by 2x
 
 ## Demo
 
