@@ -42,6 +42,26 @@ j - speed up by 2x
 
 https://github.com/user-attachments/assets/d5f15159-97d2-4f0c-833c-df54a4c9e9e9
 
+## Contributors
+<table>
+	<tr align="center">
+		<td>
+		Kurian Jojo
+		<p align="center">
+			<img src = "https://github.com/user-attachments/assets/2c500751-9c0a-4c50-95bf-292c39a56b3e" width="150" height="150" alt="Kurian Jojo">
+		</p>
+			<p align="center">
+				<a href = "https://github.com/polyesterswing">
+					<img src = "http://www.iconninja.com/files/241/825/211/round-collaboration-social-github-code-circle-network-icon.svg" width="36" height = "36" alt="GitHub"/>
+				</a>
+				<a href = "https://www.linkedin.com/in/kurian-jojo-544a54215/">
+					<img src = "http://www.iconninja.com/files/863/607/751/network-linkedin-social-connection-circular-circle-media-icon.svg" width="36" height="36" alt="LinkedIn"/>
+				</a>
+			</p>
+		</td>
+	</tr>
+</table>
+
 
 <p align="center">
 	Made with ❤ by <a href="https://dscvit.com">GDSC-VIT</a>
