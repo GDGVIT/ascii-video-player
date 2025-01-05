@@ -3,7 +3,9 @@
 	<img width="400" src="https://user-images.githubusercontent.com/56252312/159312411-58410727-3933-4224-b43e-4e9b627838a3.png#gh-light-mode-only" alt="GDSC VIT"/>
 </a>
 	<h2 align="center"> AsciiFlix </h2>
-	<h4 align="center"> play videos in the terminal <h4>
+	<p align="center">
+	<img width="400" src="https://github.com/user-attachments/assets/dade11d9-5498-46be-84e4-bf74c5a22da9" alt="AsciiFlix" />
+	<h4 align="center"> Play videos in the terminal <h4>
 </p>
 
 ---
@@ -35,6 +37,10 @@ space - pause
 l - slow down by 2x
 
 j - speed up by 2x
+
+## Demo
+
+https://github.com/user-attachments/assets/d5f15159-97d2-4f0c-833c-df54a4c9e9e9
 
 
 <p align="center">
