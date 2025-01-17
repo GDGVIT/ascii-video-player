@@ -5,7 +5,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 use std::{thread, time};
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventState};
 use crossterm::terminal;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
@@ -23,9 +23,12 @@ fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
     let (from_min, from_max) = from_range;
     let (to_min, to_max) = to_range;
 
+    //opencv::core::normalize(from_min, from_max, 0, 255, opencv::core::NORM_MINMAX, -1, None).unwrap();
+    /*
     if from_min == from_max{
         panic!("Invalid from_range: start and end cannot be the same."); // highly unlikely but not impossible in case image is corrupted
     }
+     */
 
     to_min + (s - from_min) * (to_max - to_min) / (from_max - from_min)
 }
@@ -132,6 +135,23 @@ fn main() -> Result<()> {
     });
 
     loop {
+
+        //----------------------------
+        // showing the playback speed at the bottom of the screen
+        let speed_indicator = format!("{}x", 1.0/time_multiplier);
+
+        execute!(
+            stdout,
+            MoveTo(0, term_size.1 - 1),
+            Clear(ClearType::CurrentLine)
+        ).unwrap();
+
+        execute!(stdout, MoveTo((term_size.0 - speed_indicator.len() as u16)/2, term_size.1-1)).unwrap();
+        execute!(stdout, SetForegroundColor(Color::Yellow)).unwrap();
+        print!("{speed_indicator}");
+        let _ = stdout.flush();
+        //-----------------------------
+
         if !is_paused {
             match rx.recv(){
                 Ok(received) => {
@@ -168,22 +188,27 @@ fn main() -> Result<()> {
                     //code: KeyCode::Char('l'),
                     ..
                 }) => {
-                    time_multiplier = time_multiplier * 2.0;
+                    if time_multiplier<4.0{
+                        time_multiplier = time_multiplier * 2.0;
+                    }
                 }
                 Event::Key(KeyEvent {
                     code: KeyCode::Right, // more intuitive keybinding
                     //code: KeyCode::Char('j'),
                     ..
                 }) => {
-                    time_multiplier = time_multiplier / 2.0;
+                    if time_multiplier>0.25{
+                        time_multiplier = time_multiplier / 2.0;
+                    }
                 }
                 _ => {}
             }
         }
+        execute!(stdout, MoveTo(0,0)).unwrap();
     }
 
     // provides an exit prompt before leaving the alternate screen
-    let exit_prompt = String::from("PRESS ENTER TO EXIT");
+    let exit_prompt = String::from("VIDEO FEED ENDED. PRESS ANY KEY TO EXIT");
     execute!(stdout, MoveTo((term_size.0 - exit_prompt.len() as u16)/2, term_size.1-1)).unwrap();
     execute!(stdout, SetForegroundColor(Color::Green)).unwrap();
     print!("{}",exit_prompt);
@@ -191,8 +216,8 @@ fn main() -> Result<()> {
     loop {
         if event::poll(std::time::Duration::from_secs(1)).unwrap() {
             if let Event::Key(key_event) = event::read().unwrap() {
-                if key_event.code == KeyCode::Enter {
-                    break;
+                match key_event {
+                    _ => break
                 }
             }
         }
