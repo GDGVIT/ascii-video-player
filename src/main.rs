@@ -15,6 +15,8 @@ use crossterm::{
 
 use std::env;
 use std::io;
+use std::io::Write;
+use crossterm::style::{Color, SetForegroundColor};
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
     //enhancing readability and handling errors
@@ -158,13 +160,15 @@ fn main() -> Result<()> {
                     is_paused = !is_paused;
                 }
                 Event::Key(KeyEvent {
-                    code: KeyCode::Char('l'),
+                    code: KeyCode::Left, // more intuitive keybinding
+                    //code: KeyCode::Char('l'),
                     ..
                 }) => {
                     time_multiplier = time_multiplier * 2.0;
                 }
                 Event::Key(KeyEvent {
-                    code: KeyCode::Char('j'),
+                    code: KeyCode::Right, // more intuitive keybinding
+                    //code: KeyCode::Char('j'),
                     ..
                 }) => {
                     time_multiplier = time_multiplier / 2.0;
@@ -174,6 +178,21 @@ fn main() -> Result<()> {
         }
     }
 
+    // provides an exit prompt before leaving the alternate screen
+    let exit_prompt = String::from("PRESS ENTER TO EXIT");
+    execute!(stdout, MoveTo((term_size.0 - exit_prompt.len() as u16)/2, term_size.1-1)).unwrap();
+    execute!(stdout, SetForegroundColor(Color::Green)).unwrap();
+    print!("{}",exit_prompt);
+    let _ = stdout.flush();
+    loop {
+        if event::poll(std::time::Duration::from_secs(1)).unwrap() {
+            if let Event::Key(key_event) = event::read().unwrap() {
+                if key_event.code == KeyCode::Enter {
+                    break;
+                }
+            }
+        }
+    }
     execute!(stdout, terminal::LeaveAlternateScreen).unwrap();
     execute!(stdout, Show).unwrap();
     disable_raw_mode().unwrap();
