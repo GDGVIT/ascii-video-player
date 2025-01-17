@@ -15,9 +15,19 @@ use crossterm::{
 
 use std::env;
 use std::io;
+use std::io::Write;
+use crossterm::style::{Color, SetForegroundColor};
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
-    to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
+    //enhancing readability and handling errors
+    let (from_min, from_max) = from_range;
+    let (to_min, to_max) = to_range;
+
+    if from_min == from_max{
+        panic!("Invalid from_range: start and end cannot be the same."); // highly unlikely but not impossible in case image is corrupted
+    }
+
+    to_min + (s - from_min) * (to_max - to_min) / (from_max - from_min)
 }
 
 fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result<String> {
@@ -31,7 +41,8 @@ fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result
             let pixel = frame.at_2d::<VecN<u8, 3>>(row, col)?;
 
             let gray_pixel = gray.at_2d::<u8>(row, col)?;
-            let new_pixel = map_range((0, 255), (0, (table_len - 1) as i32), *gray_pixel as i32);
+            let clamped_pixel = gray_pixel.clamp(&0, &255); // in case the image is corrupted, this clamps the value between 0 and 255
+            let new_pixel = map_range((0, 255), (0, (table_len - 1) as i32), *clamped_pixel as i32);
             out_colors.push_str(&*format!(
                 "\x1b[38;2;{};{};{}m{}",
                 pixel[2],
@@ -87,6 +98,9 @@ fn main() -> Result<()> {
 
     thread::spawn(move || loop {
         let mut frame = Mat::default();
+        if !cam.read(&mut frame).unwrap() || frame.empty(){
+            return Ok(());
+        }
         cam.read(&mut frame).unwrap();
 
         if frame.size().unwrap().width > 0 {
@@ -107,20 +121,26 @@ fn main() -> Result<()> {
             let Ok(_) =
                 tx.send(find_colors(&smaller, &gray, ascii_table, ascii_table_len).unwrap())
             else {
-                break;
+                return Ok::<(), String>(());
+                //break;
             };
         }
     });
 
     loop {
         if !is_paused {
-            let received = rx.recv().unwrap();
+            match rx.recv(){
+                Ok(received) => {
+                    execute!(stdout, MoveTo(0, 0)).unwrap();
+                    execute!(stdout, Clear(ClearType::Purge)).unwrap();
+                    print!("{}", received);
 
-            execute!(stdout, MoveTo(0, 0)).unwrap();
-            execute!(stdout, Clear(ClearType::Purge)).unwrap();
-            print!("{}", received);
-
-            thread::sleep(frame_delay.mul_f32(time_multiplier));
+                    thread::sleep(frame_delay.mul_f32(time_multiplier));
+                },
+                Err(_) => {
+                    break;
+                }
+            }
         }
 
         if event::poll(Duration::from_millis(0)).unwrap() {
@@ -140,13 +160,15 @@ fn main() -> Result<()> {
                     is_paused = !is_paused;
                 }
                 Event::Key(KeyEvent {
-                    code: KeyCode::Char('l'),
+                    code: KeyCode::Left, // more intuitive keybinding
+                    //code: KeyCode::Char('l'),
                     ..
                 }) => {
                     time_multiplier = time_multiplier * 2.0;
                 }
                 Event::Key(KeyEvent {
-                    code: KeyCode::Char('j'),
+                    code: KeyCode::Right, // more intuitive keybinding
+                    //code: KeyCode::Char('j'),
                     ..
                 }) => {
                     time_multiplier = time_multiplier / 2.0;
@@ -156,6 +178,21 @@ fn main() -> Result<()> {
         }
     }
 
+    // provides an exit prompt before leaving the alternate screen
+    let exit_prompt = String::from("PRESS ENTER TO EXIT");
+    execute!(stdout, MoveTo((term_size.0 - exit_prompt.len() as u16)/2, term_size.1-1)).unwrap();
+    execute!(stdout, SetForegroundColor(Color::Green)).unwrap();
+    print!("{}",exit_prompt);
+    let _ = stdout.flush();
+    loop {
+        if event::poll(std::time::Duration::from_secs(1)).unwrap() {
+            if let Event::Key(key_event) = event::read().unwrap() {
+                if key_event.code == KeyCode::Enter {
+                    break;
+                }
+            }
+        }
+    }
     execute!(stdout, terminal::LeaveAlternateScreen).unwrap();
     execute!(stdout, Show).unwrap();
     disable_raw_mode().unwrap();
