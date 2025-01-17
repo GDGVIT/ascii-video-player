@@ -17,7 +17,15 @@ use std::env;
 use std::io;
 
 fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
-    to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
+    //enhancing readability and handling errors
+    let (from_min, from_max) = from_range;
+    let (to_min, to_max) = to_range;
+
+    if (from_min == from_max){
+        panic!("Invalid from_range: start and end cannot be the same."); // highly unlikely but not impossible in case image is corrupted
+    }
+
+    to_min + (s - from_min) * (to_max - to_min) / (from_max - from_min)
 }
 
 fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result<String> {
@@ -31,7 +39,8 @@ fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result
             let pixel = frame.at_2d::<VecN<u8, 3>>(row, col)?;
 
             let gray_pixel = gray.at_2d::<u8>(row, col)?;
-            let new_pixel = map_range((0, 255), (0, (table_len - 1) as i32), *gray_pixel as i32);
+            let clamped_pixel = gray_pixel.clamp(&0, &255); // in case the image is corrupted, this clamps the value between 0 and 255
+            let new_pixel = map_range((0, 255), (0, (table_len - 1) as i32), *clamped_pixel as i32);
             out_colors.push_str(&*format!(
                 "\x1b[38;2;{};{};{}m{}",
                 pixel[2],
