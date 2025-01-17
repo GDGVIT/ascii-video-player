@@ -21,7 +21,7 @@ fn map_range(from_range: (i32, i32), to_range: (i32, i32), s: i32) -> i32 {
     let (from_min, from_max) = from_range;
     let (to_min, to_max) = to_range;
 
-    if (from_min == from_max){
+    if from_min == from_max{
         panic!("Invalid from_range: start and end cannot be the same."); // highly unlikely but not impossible in case image is corrupted
     }
 
@@ -96,6 +96,9 @@ fn main() -> Result<()> {
 
     thread::spawn(move || loop {
         let mut frame = Mat::default();
+        if !cam.read(&mut frame).unwrap() || frame.empty(){
+            return Ok(());
+        }
         cam.read(&mut frame).unwrap();
 
         if frame.size().unwrap().width > 0 {
@@ -116,20 +119,26 @@ fn main() -> Result<()> {
             let Ok(_) =
                 tx.send(find_colors(&smaller, &gray, ascii_table, ascii_table_len).unwrap())
             else {
-                break;
+                return Ok::<(), String>(());
+                //break;
             };
         }
     });
 
     loop {
         if !is_paused {
-            let received = rx.recv().unwrap();
+            match rx.recv(){
+                Ok(received) => {
+                    execute!(stdout, MoveTo(0, 0)).unwrap();
+                    execute!(stdout, Clear(ClearType::Purge)).unwrap();
+                    print!("{}", received);
 
-            execute!(stdout, MoveTo(0, 0)).unwrap();
-            execute!(stdout, Clear(ClearType::Purge)).unwrap();
-            print!("{}", received);
-
-            thread::sleep(frame_delay.mul_f32(time_multiplier));
+                    thread::sleep(frame_delay.mul_f32(time_multiplier));
+                },
+                Err(_) => {
+                    break;
+                }
+            }
         }
 
         if event::poll(Duration::from_millis(0)).unwrap() {
