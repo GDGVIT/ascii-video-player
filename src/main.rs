@@ -58,6 +58,14 @@ fn find_colors(frame: &Mat, gray: &Mat, table: &str, table_len: usize) -> Result
     Ok(out_colors)
 }
 
+fn handle_args(args: Vec<String>, video_file: &mut String){
+    if args.len() < 2 {
+        eprintln!("Usage: {} <video file>", args[0]);
+        return;
+    }
+    *video_file = args[1].clone();
+}
+
 fn main() -> Result<()> {
 
     let mut is_paused = false;
@@ -70,13 +78,9 @@ fn main() -> Result<()> {
     let term_size = crossterm::terminal::size().unwrap();
 
     let args: Vec<String> = env::args().collect();
-
-    if args.len() < 2 {
-        println!("Usage: {} <video file>", args[0]);
-        return Ok(());
-    }
-
-    let video_file = &args[1];
+    let mut video_path = String::from("");
+    handle_args(args, &mut video_path);
+    let video_file = video_path.as_str();
 
     let mut cam = videoio::VideoCapture::from_file(video_file, videoio::CAP_ANY)?;
 
