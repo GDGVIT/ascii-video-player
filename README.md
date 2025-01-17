@@ -35,12 +35,12 @@ cargo run <video file>
 
 ## Controls
 
-| Key       | Action                   |
-|-----------|--------------------------|
-| `Q`       | Quit                     |
-| `L`       | Slow down by 2x          |
-| `J`       | Speed up by 2x           |
-| `Space`   | Pause                    |
+| Key               | Action                   |
+|-------------------|--------------------------|
+| `Q`               | Quit                     |
+| `Left_arrow_key`  | Slow down by 2x          |
+| `Right_arrow_key` | Speed up by 2x           |
+| `Space`           | Pause                    |
 
 
 ## Demo
