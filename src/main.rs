@@ -138,17 +138,12 @@ fn main() -> Result<()> {
 
         //----------------------------
         // showing the playback speed at the bottom of the screen
-        let speed_indicator = format!("{}x", 1.0/time_multiplier);
+        let indicator = if !is_paused { format!("{}x", 1.0/time_multiplier) } else { String::from("paused") };
 
-        execute!(
-            stdout,
-            MoveTo(0, term_size.1 - 1),
-            Clear(ClearType::CurrentLine)
-        ).unwrap();
 
-        execute!(stdout, MoveTo((term_size.0 - speed_indicator.len() as u16)/2, term_size.1-1)).unwrap();
+        execute!(stdout, MoveTo((term_size.0 - indicator.len() as u16)/2, term_size.1-1)).unwrap();
         execute!(stdout, SetForegroundColor(Color::Yellow)).unwrap();
-        print!("{speed_indicator}");
+        print!("{indicator}");
         let _ = stdout.flush();
         //-----------------------------
 
@@ -165,6 +160,12 @@ fn main() -> Result<()> {
                     break;
                 }
             }
+
+            execute!(
+                stdout,
+                MoveTo(0, term_size.1 - 1),
+                Clear(ClearType::CurrentLine)
+            ).unwrap();
         }
 
         if event::poll(Duration::from_millis(0)).unwrap() {
